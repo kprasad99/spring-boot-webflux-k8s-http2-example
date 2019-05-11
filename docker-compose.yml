@@ -1,0 +1,8 @@
+version: '2.1'
+
+services:
+  spring-boot-webflux-k8s-http2-example:
+    image: spring-boot-webflux-k8s-http2-example
+    build: .
+    ports:
+      - 8080:8080

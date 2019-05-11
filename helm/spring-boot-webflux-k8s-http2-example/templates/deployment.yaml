@@ -1,0 +1,78 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "spring-boot-webflux-k8s-http2-example.fullname" . }}
+  labels:
+    app: {{ template "spring-boot-webflux-k8s-http2-example.name" . }}
+    chart: {{ template "spring-boot-webflux-k8s-http2-example.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "spring-boot-webflux-k8s-http2-example.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "spring-boot-webflux-k8s-http2-example.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: server.port
+            value: {{ .Values.service.port | quote }}
+          - name: server.ssl.enabled
+            value: "true"
+          - name: server.http2.enabled
+            value: "true"
+          - name: server.http.port
+            value: {{ .Values.env.server.http.port | quote }}
+          - name: server.ssl.key-store
+            value: "/jks/keystore.jks"
+          - name: server.ssl.key-store-password
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Release.Name }}-jks-secret
+                key: keystore.password
+          ports:
+            - name: https
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: http
+              containerPort: {{ .Values.env.server.http.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+          volumeMounts:
+          - name: jks
+            mountPath: /jks/keystore.jks
+            subPath: keystore.jks
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+      volumes:
+      - name: jks
+        configMap:
+                name: {{ .Release.Name }}-jks

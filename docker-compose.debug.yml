@@ -1,0 +1,14 @@
+version: '2.1'
+
+services:
+  spring-boot-webflux-k8s-http2-example:
+    image: spring-boot-webflux-k8s-http2-example
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      JAVA_OPTS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005,quiet=y
+    ports:
+      - 8080:8080
+      - 5005:5005
+    

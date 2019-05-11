@@ -1,0 +1,12 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ .Release.Name }}-jks
+  labels:
+    app: {{ template "spring-boot-webflux-k8s-http2-example.name" . }}
+    chart: {{ template "spring-boot-webflux-k8s-http2-example.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+binaryData:
+  keystore.jks : |-
+    {{ .Files.Get .Values.env.tls.jksFile | b64enc }}

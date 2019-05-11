@@ -1,0 +1,171 @@
+# Getting Started
+
+
+## Preface
+* Using k8s `nodeport` to expose to external world, we unable to add truststore
+in `nginx-ingress` controller.
+* Using Java-11, if you are using Java-8, there needs some library changes for HTTP/2 to work on all the app servers, refer
+https://github.com/spring-projects/spring-framework/wiki/HTTP-2-support[here]  for configuration changes.
+* Using `undertow` as app server, `Netty` currently doesn't support Multiple ports, multiple ports is required
+for actuator to be accessed by K8s for liveness probe and readiness probe. However Netty supports HTTP/2, Hence can run on
+single port.
+* `Postman` does not support HTTP/2 yet, hence console might be HTTP/1.1 response. 
+
+ 
+## Guides
+The following guides illustrate how to configure and deploy on K8s.
+
+### Build Image
+
+. Clone the project
++
+----
+$ git clone 
+----
+
+. change directory
++
+----
+$ cd spring-boot-webflux-k8s-http2-example
+----
+
+. Build project
++
+----
+$ mvn clean package -DskipTests
+----
+
+. Build docker image (you can use either docker-compose or docker command to build image)
++
+.Using docker-compose command:
+----
+$ docker-compose -f docker-compose.yml build
+----
++
+IMPORTANT: If you have private docker registry prefix the image name with registry url.
++
+.User docker command:
+----
+$ docker build . -t spring-boot-webflux-k8s-http2-example
+----
++
+IMPORTANT: If you have private docker registry prefix the image name with registry url.
+
+. Publish the docker image to private registry.
++
+----
+$ docker push
+----
++
+[TIP]
+====
+If you don't have private registry. load the docker images to manually to all K8s nodes
+
+. Save the Image
++
+----
+$ docker save spring-boot-webflux-k8s-http2-example -o spring-boot-webflux-k8s-http2-example.tar.xz
+----
+. Execute below command for each K8s node
+.. Copy image to node
++ 
+----
+$ scp spring-boot-webflux-k8s-http2-example.tar.xz <username>:<host-ip>:~/
+----
+
+.. Login to server
++ 
+----
+$ ssh <username>:<host-ip>
+----
+
+.. Load image
++
+----
+docker load -i spring-boot-webflux-k8s-http2-example.tar.xz
+----
+====
+
+### Generate Certificate.
+
+. Generate Self signed certificate
++
+----
+$ openssl req -newkey rsa:2048 -nodes -keyout k-cert-tls.key -x509 -days 365 -out k-cert-tls.crt
+----
+
+. Convert it to `PKCS#12`
++
+----
+$ openssl pkcs12 -export -out k-cert-tls.p12 -inkey k-cert-tls.key -in k-cert-tls.crt -name k-cert
+----
+
+. Generate JKS file
++
+----
+$ keytool -importkeystore -srckeystore k-cert-tls.p12 -srcstoretype pkcs12 -destkeystore k-cert-tls.jks -keypass Hello1 -storepass Hello1 -alias k-cert
+----
+
+[TIP]
+====
+
+If you get warning proprietary format is used execute below command
+----
+$ keytool -importkeystore -srckeystore k-cert-tls.jks -destkeystore k-cert-tls.jks -deststoretype pkcs12
+----
+
+To list jks from keystore
+----
+keytool -list -alias k-cert -keystore k-cert-tls.jks -storepass Hello1
+----
+
+To delete jks from keystore 
+----
+keytool -delete -alias k-cert -keystore k-cert-tls.jks -storepass Hello1
+----
+====
+
+=== Deploy to K8s
+
+. copy the generate jks file to `helm/spring-boot-webflux-k8s-http2-example` direcotry.
++
+----
+ cp k-cert-tls.jks helm/spring-boot-webflux-k8s-http2-example
+----
+
+. change directory
++
+----
+cd helm/spring-boot-webflux-k8s-http2-example
+----
+
+. Install the package.
++
+----
+$ helm install . --name spring-boot-webflux-k8s-http2-example --debug
+----
+
+IMPORTANT: update `values.yaml` accordingly._
+
+. check pods start is successful
++
+----
+$ kubectl get po
+----
+
+== Validation
+
+- Once the pods is up run below command and note down the HTTPS port
++
+----
+kubectl get --namespace default -o jsonpath="{.spec.ports}" services spring-boot-webflux-k8s-http2-example
+----
+
+. Execute below command to get node on which pod is running.
++
+----
+kubectl get nodes --namespace default -o jsonpath="{.items[0].status.addresses[0].address}"
+----
+
+. Now open the browser and browse with using 'https://<node-ip>:<node-port` and check for the browser
+console for response to be bieng HTTP/2
